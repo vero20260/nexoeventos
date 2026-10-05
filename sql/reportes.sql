@@ -1,0 +1,63 @@
+-- ==============================================================================
+-- SQL/REPORTES.SQL - CONSULTAS DE INTELIGENCIA DE NEGOCIO (MÓDULO B)
+-- ==============================================================================
+-- Según el documento P2 (Sección 4 Módulo B y Sección 8.3):
+--
+-- Estas consultas deben implementarse como vistas o funciones almacenadas en PostgreSQL
+-- para ser consultadas directamente con SQL parametrizado desde FastAPI.
+--
+-- ------------------------------------------------------------------------------
+-- 1. REPORTE B1: Organigrama (CTE Recursiva)
+-- ------------------------------------------------------------------------------
+-- Objetivo:
+-- - Dado un miembro del staff (o toda la organización si el parámetro es NULL),
+--   listar todas las personas que dependen jerárquicamente de él directa o indirectamente.
+-- Columnas a retornar:
+-- - id_staff, nombre, cargo, area, nivel jerárquico (1, 2, 3, ...),
+--   ruta_mando (ejemplo: «Dirección General > Gerencia Operaciones > Jefe Logística»),
+--   total_personas_a_cargo (conteo recursivo de subordinados directos e indirectos).
+-- Requisito clave de P2:
+-- - Proteger la recursión contra ciclos infinitos en la jerarquía (usando array de visitados
+--   o condición NOT id_staff = ANY(camino)).
+--
+-- ------------------------------------------------------------------------------
+-- 2. REPORTE B2: Cadena de Escalamiento (CTE Recursiva)
+-- ------------------------------------------------------------------------------
+-- Objetivo:
+-- - Dado el identificador de un miembro del staff (ej: coordinador de un evento),
+--   listar en orden ascendente toda su línea de mando inmediata hasta la Dirección General.
+-- - Responde a la pregunta operativa: "¿A quién escalo un incidente durante un evento?".
+-- Columnas a retornar:
+-- - paso_escalamiento (1, 2, ...), id_staff, nombre, cargo, area, correo, telefono/contacto.
+--
+-- ------------------------------------------------------------------------------
+-- 3. REPORTE B3: Ranking de Clientes y Análisis de Pareto (Funciones de Ventana)
+-- ------------------------------------------------------------------------------
+-- Objetivo:
+-- - Analizar la facturación acumulada de clientes considerando únicamente eventos
+--   NO cancelados ('Cotizado', 'Confirmado', 'Finalizado').
+-- Columnas a retornar:
+-- - id_cliente, nombre_cliente,
+-- - eventos_no_cancelados (COUNT(id_evento)),
+-- - total_facturado (SUM(total_evento)),
+-- - posicion_ranking (DENSE_RANK() o ROW_NUMBER() OVER (ORDER BY total_facturado DESC)),
+-- - porcentaje_participacion: ROUND((total_facturado / SUM(total_facturado) OVER ()) * 100, 2),
+-- - porcentaje_acumulado: ROUND((SUM(total_facturado) OVER (ORDER BY total_facturado DESC) / SUM(total_facturado) OVER ()) * 100, 2),
+-- - clasificacion_pareto: CASE WHEN porcentaje_acumulado <= 80 THEN 'A (80%)' ELSE 'B/C' END.
+--
+-- ------------------------------------------------------------------------------
+-- 4. REPORTE B4: Ocupación de Salones y Tiempos Muertos (Funciones de Ventana)
+-- ------------------------------------------------------------------------------
+-- Objetivo:
+-- - Evaluar cronológicamente el uso de cada salón y calcular tiempos libres entre eventos
+--   no cancelados.
+-- Columnas a retornar:
+-- - id_salon, nombre_salon,
+-- - id_evento, nombre_evento, inicio, fin,
+-- - numero_evento_salon: ROW_NUMBER() OVER (PARTITION BY id_salon ORDER BY inicio),
+-- - evento_anterior_nombre: LAG(nombre_evento) OVER (PARTITION BY id_salon ORDER BY inicio),
+-- - fin_evento_anterior: LAG(fin) OVER (PARTITION BY id_salon ORDER BY inicio),
+-- - dias_libre_desde_anterior: ROUND(EXTRACT(EPOCH FROM (inicio - LAG(fin) OVER (PARTITION BY id_salon ORDER BY inicio))) / 86400.0, 2),
+-- - horas_reservadas_evento: ROUND(EXTRACT(EPOCH FROM (fin - inicio)) / 3600.0, 2),
+-- - horas_reservadas_acumuladas: SUM(ROUND(EXTRACT(EPOCH FROM (fin - inicio)) / 3600.0, 2)) OVER (PARTITION BY id_salon ORDER BY inicio).
+-- ==============================================================================

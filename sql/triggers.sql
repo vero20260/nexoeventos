@@ -1,0 +1,78 @@
+-- ==============================================================================
+-- SQL/TRIGGERS.SQL - LÓGICA PROCEDIMENTAL (MÓDULO A)
+-- ==============================================================================
+-- Según el documento P2 (Secciones 3, 5.1, 8.2 y Pistas de implementación):
+--
+-- REGLAS OBLIGATORIAS:
+-- - Estas reglas deben vivir en PostgreSQL directamente, no solo en Python.
+-- - Deben ser idempotentes (CREATE OR REPLACE FUNCTION ... y DROP TRIGGER IF EXISTS ... CREATE TRIGGER).
+-- - Cuando una regla se incumple, debe lanzar RAISE EXCEPTION con código y mensaje claro.
+--
+-- ------------------------------------------------------------------------------
+-- 1. TRIGGER A1: Disponibilidad y capacidad del salón
+-- ------------------------------------------------------------------------------
+-- Tablas afectadas: eventos (BEFORE INSERT OR UPDATE)
+-- Condiciones que debe validar y bloquear:
+-- a) El aforo esperado supera la capacidad máxima del salón.
+-- b) El salón seleccionado se encuentra deshabilitado (disponible = FALSE).
+-- c) Se cruza en horario con otro evento no cancelado en el mismo salón:
+--    * ATENCIÓN: Entre dos eventos del mismo salón DEBE QUEDAR AL MENOS 1 HORA LIBRE
+--      para montaje y aseo (ej: nuevo_inicio < fin_otro + INTERVAL '1 hour' AND nuevo_fin + INTERVAL '1 hour' > inicio_otro).
+--    * El mensaje de error DEBE decir con qué evento y en qué horario se cruza.
+--      Ejemplo: "DISPONIBILIDAD: El salón 'Salón Guayacán' está reservado para 'Jornada Científica' (2026-11-18 08:00 a 12:00). Se requiere 1 hora de montaje entre eventos."
+-- d) Debe ejecutarse tanto al crear el evento como al reprogramarlo (cambio de salón, horario o aforo)
+--    y al reactivarlo.
+--
+-- ------------------------------------------------------------------------------
+-- 2. TRIGGER A2: Cupos y asistencia real
+-- ------------------------------------------------------------------------------
+-- Tablas afectadas: inscripciones (BEFORE INSERT OR UPDATE)
+-- Condiciones que debe validar y bloquear:
+-- a) No se permiten inscripciones si el evento está en estado 'Cancelado' o 'Finalizado'.
+-- b) No se permiten inscripciones si la cantidad de inscritos actuales ya alcanzó
+--    el aforo esperado contratado.
+--    Ejemplo error: "CUPO: El evento '...' alcanzó su aforo contratado (X personas)."
+-- c) Validación de Check-in en puerta:
+--    * Solo se permite registrar check-in si la hora se encuentra entre (inicio_evento - INTERVAL '1 hour')
+--      y fin_evento.
+--    * Solo se permite el check-in una sola vez por asistente inscrito.
+--    Ejemplo error: "CHECK-IN: Solo se permite ingresar entre ... y ... (hora indicada: ...)."
+--
+-- ------------------------------------------------------------------------------
+-- 3. TRIGGER A3: Liquidación automática del evento
+-- ------------------------------------------------------------------------------
+-- Tablas afectadas: evento_servicios y eventos (BEFORE/AFTER INSERT, UPDATE, DELETE)
+-- Lógica requerida:
+-- a) Al asociar un servicio a un evento (INSERT en evento_servicios):
+--    * Debe congelar el precio unitario del catálogo de servicios en ese instante
+--      (si el centro sube precios después, las cotizaciones existentes no cambian).
+--    * Cantidad por defecto: Si no se indica o viene nula, debe calcular:
+--      - Servicios cobrados 'Por persona' -> cantidad = aforo_esperado del evento.
+--      - Servicios cobrados 'Por hora' -> cantidad = duración del evento en horas (redondeada hacia arriba: CEIL(EXTRACT(EPOCH FROM (fin - inicio))/3600)).
+--    * Calcular subtotal del servicio = cantidad * precio_unitario.
+-- b) No se pueden agregar, modificar ni eliminar servicios si el evento está en estado
+--    'Finalizado' o 'Cancelado'.
+-- c) Mantener siempre actualizado el total del evento en la tabla eventos:
+--    * total = (duración en horas del evento * precio_hora del salón) + SUM(subtotales de servicios).
+--    * Debe recalcularse automáticamente al crear evento, reprogramar horario/salón,
+--      y al agregar, editar o borrar servicios.
+--
+-- ------------------------------------------------------------------------------
+-- 4. TRIGGER A4: Cierre del evento y auditoría
+-- ------------------------------------------------------------------------------
+-- Tablas afectadas: eventos (BEFORE / AFTER UPDATE)
+-- Lógica requerida:
+-- a) Transiciones de estado definitivas:
+--    * 'Finalizado' y 'Cancelado' son estados terminales definitivos (no se pueden volver a modificar).
+--    * Un evento SOLO se puede finalizar si su hora de fin ya pasó (CURRENT_TIMESTAMP >= fin_evento).
+-- b) Tasa de asistencia real:
+--    * Al pasar a 'Finalizado', el trigger debe calcular y guardar la tasa de asistencia:
+--      (conteo de check-ins / conteo de inscritos) * 100 con 2 decimales.
+--      Si no hubo inscritos, debe quedar nula (NULL).
+-- c) Auditoría de cambios:
+--    * Todo cambio de estado, de salón o de horario (inicio/fin) debe insertar un registro
+--      en la tabla auditoria_eventos con:
+--      (evento_id, campo, valor_anterior, valor_nuevo, fecha_cambio, usuario).
+--    * PISTA P2: El usuario se debe leer desde PostgreSQL usando:
+--      COALESCE(NULLIF(current_setting('app.current_user', true), ''), 'sistema')
+-- ==============================================================================

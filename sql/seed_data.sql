@@ -1,0 +1,59 @@
+-- ==============================================================================
+-- SQL/SEED_DATA.SQL - DATOS DE PRUEBA Y CATÁLOGOS OBLIGATORIOS
+-- ==============================================================================
+-- Según el documento P2 (Sección 2 Catálogo del centro y datos de prueba, Sección 3 y 8.1):
+--
+-- ADVERTENCIA CRÍTICA:
+-- "Los datos deben pasar por los triggers (NO se desactivan para cargarlos):
+-- valores totales, tasas de asistencia y auditoría quedan calculados por la propia base."
+--
+-- ------------------------------------------------------------------------------
+-- 1. CATÁLOGO OBLIGATORIO DE SALONES (Valores exactos del documento)
+-- ------------------------------------------------------------------------------
+-- INSERT INTO salones (nombre, tamano, capacidad, precio_hora, disponible) VALUES
+-- ('Salón Orquídea', 'Pequeño', 40, 250000, true),
+-- ('Salón Heliconia', 'Pequeño', 60, 320000, true),
+-- ('Salón Guayacán', 'Mediano', 150, 650000, true),
+-- ('Salón Ceiba', 'Mediano', 200, 800000, true),
+-- ('Gran Salón Cóndor', 'Grande', 600, 1800000, true),
+-- ('Auditorio Principal', 'Grande', 1000, 2500000, true);
+--
+-- ------------------------------------------------------------------------------
+-- 2. CATÁLOGO OBLIGATORIO DE SERVICIOS (Valores exactos del documento)
+-- ------------------------------------------------------------------------------
+-- INSERT INTO servicios (nombre, categoria, modo_cobro, precio_unitario, activo) VALUES
+-- ('Estación de agua', 'Bebidas', 'Por persona', 3000, true),
+-- ('Estación de café', 'Bebidas', 'Por persona', 6500, true),
+-- ('Refrigerio económico', 'Refrigerios', 'Por persona', 12000, true),
+-- ('Refrigerio medio', 'Refrigerios', 'Por persona', 22000, true),
+-- ('Refrigerio alto', 'Refrigerios', 'Por persona', 38000, true),
+-- ('Sonido básico (2 micrófonos + parlantes)', 'Audiovisuales', 'Por hora', 120000, true),
+-- ('Sonido profesional (consola + 6 micrófonos)', 'Audiovisuales', 'Por hora', 350000, true),
+-- ('Multimedia (proyector + pantalla)', 'Audiovisuales', 'Por hora', 90000, true),
+-- ('Streaming y grabación', 'Audiovisuales', 'Por hora', 450000, true);
+--
+-- ------------------------------------------------------------------------------
+-- 3. DATOS DE PRUEBA MÍNIMOS REQUERIDOS:
+-- ------------------------------------------------------------------------------
+-- a) Clientes: Al menos 8 clientes registrados (combinando personas naturales con CC
+--    y empresas con NIT).
+--
+-- b) Staff: Al menos 15 personas distribuidas en 4 niveles de jerarquía:
+--    - Nivel 1: Dirección General (sin jefe, jefe_id = NULL).
+--    - Nivel 2: Gerencias (Operaciones, Comercial, etc.).
+--    - Nivel 3: Jefaturas y Coordinaciones.
+--    - Nivel 4: Auxiliares y Técnicos.
+--
+-- c) Eventos: Al menos 12 eventos que cubran:
+--    - Todos los estados: 'Cotizado', 'Confirmado', 'Finalizado', 'Cancelado'.
+--    - Horarios pasados (para probar eventos finalizados con tasa de asistencia) y futuros.
+--    - Con servicios contratados asociados.
+--    - Respetando la regla de separación de al menos 1 hora entre eventos del mismo salón.
+--
+-- d) Asistentes e Inscripciones:
+--    - Al menos 60 asistentes registrados.
+--    - Inscripciones suficientes para demostrar:
+--      * Eventos con cupos llenos (llegando al aforo esperado).
+--      * Check-ins realizados dentro de la ventana horaria permitida.
+--      * Eventos con diferentes tasas de asistencia calculadas automáticamente al finalizar.
+-- ==============================================================================

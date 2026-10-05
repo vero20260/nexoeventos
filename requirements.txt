@@ -1,0 +1,23 @@
+# ==============================================================================
+# DEPENDENCIAS DEL PROYECTO NEXOEVENTOS (P2)
+# ==============================================================================
+# Este archivo define las librerías necesarias para ejecutar tanto el Backend
+# (FastAPI + SQLAlchemy + PostgreSQL) como el Frontend (Streamlit).
+#
+# Para instalar todas las dependencias ejecute:
+#   pip install -r requirements.txt
+#
+# Backend:
+# - fastapi: Framework web para construir las APIs REST
+# - uvicorn[standard]: Servidor ASGI para ejecutar la aplicación FastAPI
+# - sqlalchemy: ORM para la gestión de modelos y base de datos relacional
+# - psycopg2-binary: Driver para la conexión con PostgreSQL
+# - pydantic: Validación de datos y esquemas DTO
+# - python-dotenv: Carga de variables de entorno desde el archivo .env
+#
+# Frontend:
+# - streamlit: Framework interactivo para la interfaz de usuario web
+# - requests: Cliente HTTP para consumir los endpoints de la API de FastAPI
+# - pandas: Manipulación de datos tabulares y reportes en Streamlit
+# - plotly / matplotlib: Visualización gráfica de reportes (ej. Pareto, ocupación)
+# ==============================================================================
