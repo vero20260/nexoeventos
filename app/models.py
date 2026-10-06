@@ -4,7 +4,7 @@ from .database import Base
 
 
 
-class Cliente(Base):
+class ClienteEntity(Base):
     __tablename__= "clientes"
     id_cliente = Column(Integer, primary_key = True, index=True)
     tipo_cliente = Column(String(50), nullable = False) #El CheckConstraint se pone despues en el __table_args__, ahi se hacen las validaciones.
@@ -19,9 +19,9 @@ class Cliente(Base):
     )
 
     #relaciones entre tablas
-    eventos = relationship("Evento", back_populates="cliente")
+    eventos = relationship("EventoEntity", back_populates="cliente")
 
-class Servicio(Base):
+class ServicioEntity(Base):
     __tablename__ = "servicios"
     id_servicio = Column(Integer, primary_key = True, index=True)
     nombre_servicio = Column(String(150), nullable = False)
@@ -35,9 +35,9 @@ class Servicio(Base):
         CheckConstraint('precio_unitario > 0', name='check_precio_unitario_servicio'),
     )
     #Relaciones tablas
-    evento_servicios = relationship("Evento_Servicios", back_populates="servicio")
+    evento_servicios = relationship("Evento_ServiciosEntity", back_populates="servicio")
 
-class Salon(Base):
+class SalonEntity(Base):
     __tablename__= 'salones'
     id_salon = Column(Integer, primary_key = True, index=True)
     nombre_salon = Column(String(100), nullable=False) # hacer Check
@@ -47,16 +47,16 @@ class Salon(Base):
     disponible = Column(Boolean, default=True) #Por defecto es true, osea que esta disponible.
 
     __table_args__= (
-        CheckConstraint("nombre_salon IN ('Salon Orquidea', 'Salon Heliconia', 'Salon Guayacan', 'Salon Ceiba', 'Gran Salon Condor', 'Auditorio Principal')", name='check_nombre_salon'), 
-        CheckConstraint("tamano IN ('Pequeño', 'Mediano', 'Grande')", name='check_tamano'),
+        CheckConstraint("LOWER (nombre_salon) IN ('salón orquídea', 'salon orquidea', 'salón heliconia', 'salon heliconia', 'salón guayacán', 'salon guayacan', 'salón ceiba', 'salon ceiba', 'gran salón cóndor', 'gran salon condor', 'auditorio principal')", name='check_nombre_salon'), #Con tildes y sin tildes, lo compara todo estando en minusculas 
+        CheckConstraint("LOWER(tamano) IN ('pequeño', 'mediano', 'grande')", name='check_tamano'),
         CheckConstraint('capacidad > 0', name='check_capacidad'),
         CheckConstraint('precio_hora > 0', name='check_precio_hora')
     )
 
     #Relaciones tablas
-    eventos = relationship("Evento", back_populates="salon")
+    eventos = relationship("EventoEntity", back_populates="salon")
 
-class Staff(Base):
+class StaffEntity(Base):
     __tablename__ = 'staff'
     id_staff = Column(Integer, primary_key = True, index=True)
     nombre_staff = Column(String(150), nullable=False)
@@ -68,17 +68,17 @@ class Staff(Base):
     #Como determinamos quien es jefe de quien?
     
     __table_args__ = (
-        CheckConstraint ("area IN ('Direccion', 'Operaciones', 'Comercial', 'Logistica', 'Alimentos y Bebidas', 'Audiovisuales')", name='check_area_staff'),
+        CheckConstraint ("LOWER (area) IN ('dirección', 'direccion', 'operaciones', 'comercial', 'logística', 'logistica', 'alimentos y bebidas', 'audiovisuales')", name='check_area_staff'),
     )
 
     #Relaciones gtablas
     #jerarquia (Jefe-subordinado) se debe hacer una autoreferencia, es decir referenciamos la mimsa tabla
-    subordinados = relationship("Staff", backref=backref("jefe", remote_side=[id_staff])) #el backred le dice a SQLALchemy que cree una propiedad llamada .jefe en cada objeto de la clase Staff, para que apunte a su superior directo-
+    subordinados = relationship("StaffEntity", backref=backref("jefe", remote_side=[id_staff])) #el backred le dice a SQLALchemy que cree una propiedad llamada .jefe en cada objeto de la clase Staff, para que apunte a su superior directo-
     #Aca 'subordinados' va a permitir consultar la lista de personas a cargo de un jefe (se utilizaria usando jefe.subordinados)
 
-    eventos_coordinador = relationship("Evento", back_populates = "coordinador") #relaciona al staff con los eventos que coordina. Es una relacion bidireccional con el atributo 'coordinador0 en la tabla eventos.
+    eventos_coordinador = relationship("EventoEntity", back_populates = "coordinador") #relaciona al staff con los eventos que coordina. Es una relacion bidireccional con el atributo 'coordinador0 en la tabla eventos.
 
-class Evento(Base):
+class EventoEntity(Base):
     __tablename__= 'eventos'
     id_evento = Column(Integer, primary_key = True, index=True)
     cliente_id = Column(Integer, ForeignKey('clientes.id_cliente'), nullable=False)
@@ -91,23 +91,24 @@ class Evento(Base):
     coordinador_id = Column(Integer, ForeignKey('staff.id_staff'), nullable=False)
     estado_evento = Column(String(20), nullable=False, default = 'Cotizado') #hacer check entre los estados disponibles
     subtotal = Column(Numeric(14,2), nullable=False) #Hacer check de que sea > 0 #Este subtotal es el precio por hora del salon
+    tasa_asistencia = Column(Numeric(5,2), nullable = True)
 
     __table_args__= (
         CheckConstraint('aforo_esperado > 0', name = "check_aforo_evento"),
-        CheckConstraint("estado_evento IN ('Cotizado', 'Confirmado', 'Finalizado', 'Cancelado')", name = "check_estado_evento"),#hacer check entre los estados disponibles
+        CheckConstraint("LOWER(estado_evento) IN ('cotizado', 'confirmado', 'finalizado', 'cancelado')", name = "check_estado_evento"),#hacer check entre los estados disponibles
         CheckConstraint('subtotal > 0', name = "check_subtotal_evento"),
-        CheckConstraint('fin_evento >= inicio_evento', name="check_rango_fechas"),
+        CheckConstraint('fin_evento > inicio_evento', name="check_rango_fechas"),
     ) 
     #Relaciones tablas
-    cliente = relationship("Cliente", back_populates="eventos")
-    salon = relationship("Salon", back_populates="eventos")
-    coordinador = relationship("Staff", back_populates="eventos_coordinador")
-    servicios = relationship("Evento_Servicios", back_populates="evento")
-    inscripciones = relationship("Inscripciones", back_populates="evento")
-    auditorias = relationship("Auditoria_Eventos", back_populates="evento")
+    cliente = relationship("ClienteEntity", back_populates="eventos")
+    salon = relationship("SalonEntity", back_populates="eventos")
+    coordinador = relationship("StaffEntity", back_populates="eventos_coordinador")
+    servicios = relationship("Evento_ServiciosEntity", back_populates="evento")
+    inscripciones = relationship("InscripcionesEntity", back_populates="evento")
+    auditorias = relationship("Auditoria_EventosEntity", back_populates="evento")
     
 
-class Evento_Servicios(Base):
+class Evento_ServiciosEntity(Base):
     __tablename__ = 'evento_servicios'
     id_evento_servicio = Column(Integer, primary_key = True, index=True)
     id_evento = Column(Integer, ForeignKey('eventos.id_evento'), nullable=False)
@@ -122,10 +123,10 @@ class Evento_Servicios(Base):
         CheckConstraint('total_evento_servicios > 0', name="check_total_evento_servicios"),
     )
     #relaciones tablals
-    evento = relationship("Evento", back_populates="servicios") #me permite navegar desde el detalle del servicio hacia el evento que tiene asociado
-    servicio = relationship("Servicio", back_populates = "evento_servicios") #me permite ir del detalle hacia el servicio que se contrato.
+    evento = relationship("EventoEntity", back_populates="servicios") #me permite navegar desde el detalle del servicio hacia el evento que tiene asociado
+    servicio = relationship("ServicioEntity", back_populates = "evento_servicios") #me permite ir del detalle hacia el servicio que se contrato.
 
-class Asistente(Base):
+class AsistenteEntity(Base):
     __tablename__ = 'asistentes'
     id_asistente = Column(Integer, primary_key = True, index=True)
     documento = Column(String(20), nullable = False, unique=True)
@@ -134,9 +135,9 @@ class Asistente(Base):
     empresa = Column(String(150), nullable=True)
 
     #Relaciones
-    inscripciones = relationship("Inscripciones", back_populates="asistente")
+    inscripciones = relationship("InscripcionesEntity", back_populates="asistente")
 
-class Inscripciones(Base):
+class InscripcionesEntity(Base):
     __tablename__ = "inscripciones"
     id_inscripciones = Column(Integer, primary_key = True, index=True)
     id_evento = Column(Integer, ForeignKey('eventos.id_evento'), nullable=False)
@@ -145,10 +146,10 @@ class Inscripciones(Base):
     check_in = Column(DateTime, nullable=True)
     
     #relaciones tablas
-    evento = relationship("Evento", back_populates="inscripciones")
-    asistente = relationship("Asistente", back_populates="inscripciones")
+    evento = relationship("EventoEntity", back_populates="inscripciones")
+    asistente = relationship("AsistenteEntity", back_populates="inscripciones")
 
-class Auditoria_Eventos(Base):
+class Auditoria_EventosEntity(Base):
 #Auditoria_Eventos es el nombre de la clase en python que mapea la tabla
 #auditoria_eventos es el nombre de la tabla en postgress
 #auditorias es el nombre del atributo con el que se puede navegar por python , ej: evento.auditorias
@@ -162,5 +163,5 @@ class Auditoria_Eventos(Base):
     usuario_cambio = Column(String(100), nullable=True) #Para saber quien hizo el cambio.
 
     #relaciones tablas
-    evento = relationship("Evento", back_populates = "auditorias")
+    evento = relationship("EventoEntity", back_populates = "auditorias")
 
