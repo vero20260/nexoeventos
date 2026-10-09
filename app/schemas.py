@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
+from .models import NombreSalon, TamanoSalon, AreaStaff, EstadoEvento   
 #El Base va a agrupar los campos que tienen en comun lo que se envia y lo que se responde.
 #El Create se usa para validar los datos recibidos en los POST o PUT (El post crea y el put reemplaza o actualiza)
 #create no incluye la validacion del id porque lo genero automaticamente la bd
@@ -49,8 +50,10 @@ class ServicioResponse(ServicioBase):
 #TABLAS SALON
 
 class SalonBase(BaseModel):
-    nombre_salon: str = Field(..., max_length=100)
-    tamano: str = Field(..., max_length=20)
+    #nombre_salon: str = Field(..., max_length=100)
+    nombre_salon: NombreSalon 
+    #tamano: str = Field(..., max_length=20)
+    tamano: TamanoSalon
     capacidad: int = Field(..., gt=0) #La capacidad del salon no puede ser menor a 0
     precio_hora: Decimal = Field(..., gt=0, decimal_places=2)
     disponible: bool = True
@@ -69,7 +72,8 @@ class SalonResponse (SalonBase):
 class StaffBase(BaseModel):
     nombre_staff: str = Field(..., max_length=150)
     cargo: str = Field(..., max_length=100)
-    area: str = Field(..., max_length=50)
+    #area: str = Field(..., max_length=50)
+    area: AreaStaff
     correo: EmailStr
     jefe_id: Optional[int] = None #No todos los staff tienen jefe, por lo que es opcional.
 
@@ -93,7 +97,8 @@ class EventoBase(BaseModel):
     inicio_evento: datetime
     fin_evento: datetime
     aforo_esperado: int = Field(..., gt=0)
-    estado_evento: str = Field(default = "Cotizado")
+    #estado_evento: str = Field(default = "Cotizado")
+    estado_evento: EstadoEvento = EstadoEvento.cotizado #por defecto es cotizado. ###Ver si yo intento poner algo que no sea cotizado me deja?
 
 class EventoCreate(EventoBase):
     pass

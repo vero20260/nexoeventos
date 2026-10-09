@@ -1,8 +1,10 @@
-from sqlalchemy import Column, DateTime, func, Integer, String, Date, Float, ForeignKey, Text, Boolean, CheckConstraint, Numeric
+from sqlalchemy import Column, DateTime, func, Integer, String, Date, Float, ForeignKey, Text, Boolean, CheckConstraint, Numeric, Enum
 from sqlalchemy.orm import relationship, backref #backref sirve para crear una ruta bidireccional entre dos clases, es como un camino entre ambas que deja pasar de la una a la otra.
 from .database import Base
+import enum
 
 
+#CLIENTES
 
 class ClienteEntity(Base):
     __tablename__= "clientes"
@@ -15,11 +17,13 @@ class ClienteEntity(Base):
     fecha_registro = Column(Date, nullable = False)
 
     __table_args__ = (
-        CheckConstraint("tipo_cliente IN ('Natural', 'Empresa')", name = 'check_tipo_cliente'),
+        CheckConstraint("LOWER (tipo_cliente) IN ('persona natural', 'empresa')", name = 'check_tipo_cliente'),
     )
 
     #relaciones entre tablas
     eventos = relationship("EventoEntity", back_populates="cliente")
+
+#SERVICIOS
 
 class ServicioEntity(Base):
     __tablename__ = "servicios"
@@ -30,25 +34,42 @@ class ServicioEntity(Base):
     precio_unitario = Column(Numeric(10,2), nullable=False) #Hacer check de que sea mayor que 0
 
     __table_args__ = (
-        CheckConstraint( "categoria IN ('Bebidas', 'Refrigerios', 'Audiovisuales')", name = 'check_categoria_servicio'), #Poner las categorias
-        CheckConstraint("modo_cobro IN ('Por persona', 'Por hora', 'Por unidad')", name='check_modo_cobro'),#poner si es unitario, por persona, etc.
+        CheckConstraint( "LOWER (categoria) IN ('bebidas', 'refrigerios', 'audiovisuales')", name = 'check_categoria_servicio'), #Poner las categorias
+        CheckConstraint("LOWER (modo_cobro) IN ('por persona', 'por hora', 'por unidad')", name='check_modo_cobro'),#poner si es unitario, por persona, etc.
         CheckConstraint('precio_unitario > 0', name='check_precio_unitario_servicio'),
     )
     #Relaciones tablas
     evento_servicios = relationship("Evento_ServiciosEntity", back_populates="servicio")
 
+
+
+##SALONES
+
+#Crea una clase pero que no es tabla sino que es tipo de dato. Optimiza si despues quiero usar salones en otra cosa.
+#Ademas me va a permitir hacer un menu desplegable en frontend
+class NombreSalon (str, enum.Enum):
+    salon_orquidea = "Salón Orquídea"
+    salon_heliconia = "Salón Heliconia"
+    salon_guayacan = "Salón Guayacán"
+    salon_ceiba = "Salón Ceiba"
+    gran_salon_condor = "Gran Salón Cóndor"
+    auditorio_principal = "Auditorio Principal"
+
+class TamanoSalon (str, enum.Enum):
+    pequeno = "Pequeño"
+    mediano = "Mediano"
+    grande = "Grande"
+
 class SalonEntity(Base):
     __tablename__= 'salones'
     id_salon = Column(Integer, primary_key = True, index=True)
-    nombre_salon = Column(String(100), nullable=False) # hacer Check
-    tamano = Column(String(20), nullable=False) #Hacer check entre los tamaños disponibles
+    nombre_salon = Column(Enum(NombreSalon), nullable=False) #Ahora es un tipo de dato, no un string normal
+    tamano = Column(Enum(TamanoSalon), nullable=False) #Tamaños disponibles
     capacidad = Column(Integer,nullable=False) #Hacer check>0
     precio_hora = Column(Numeric(12,2), nullable=False) #Hacer check > 0
     disponible = Column(Boolean, default=True) #Por defecto es true, osea que esta disponible.
 
     __table_args__= (
-        CheckConstraint("LOWER (nombre_salon) IN ('salón orquídea', 'salon orquidea', 'salón heliconia', 'salon heliconia', 'salón guayacán', 'salon guayacan', 'salón ceiba', 'salon ceiba', 'gran salón cóndor', 'gran salon condor', 'auditorio principal')", name='check_nombre_salon'), #Con tildes y sin tildes, lo compara todo estando en minusculas 
-        CheckConstraint("LOWER(tamano) IN ('pequeño', 'mediano', 'grande')", name='check_tamano'),
         CheckConstraint('capacidad > 0', name='check_capacidad'),
         CheckConstraint('precio_hora > 0', name='check_precio_hora')
     )
@@ -56,27 +77,40 @@ class SalonEntity(Base):
     #Relaciones tablas
     eventos = relationship("EventoEntity", back_populates="salon")
 
+#STAFF
+
+class AreaStaff(str, enum.Enum):
+    direccion = "Dirección"
+    operaciones = "Operaciones"
+    comercial = "Comercial"
+    logistica = "Logística"
+    alimentos_y_bebidas = "Alimentos y Bebidas"
+    audiovisuales = "Audiovisuales"
+
 class StaffEntity(Base):
     __tablename__ = 'staff'
     id_staff = Column(Integer, primary_key = True, index=True)
     nombre_staff = Column(String(150), nullable=False)
     cargo = Column(String(100), nullable=False)
-    area = Column(String(50), nullable=False) #Check de las areas disponibles
+    area = Column(Enum(AreaStaff), nullable=False) #Check de las areas disponibles
     correo = Column(String(150), nullable=False, unique=True)
     fecha_ingreso = Column(Date, nullable=False)
     jefe_id = Column(Integer, ForeignKey('staff.id_staff'), nullable=True) #Para saber quien es el jefe del jefe
     #Como determinamos quien es jefe de quien?
     
-    __table_args__ = (
-        CheckConstraint ("LOWER (area) IN ('dirección', 'direccion', 'operaciones', 'comercial', 'logística', 'logistica', 'alimentos y bebidas', 'audiovisuales')", name='check_area_staff'),
-    )
-
     #Relaciones gtablas
     #jerarquia (Jefe-subordinado) se debe hacer una autoreferencia, es decir referenciamos la mimsa tabla
     subordinados = relationship("StaffEntity", backref=backref("jefe", remote_side=[id_staff])) #el backred le dice a SQLALchemy que cree una propiedad llamada .jefe en cada objeto de la clase Staff, para que apunte a su superior directo-
     #Aca 'subordinados' va a permitir consultar la lista de personas a cargo de un jefe (se utilizaria usando jefe.subordinados)
-
     eventos_coordinador = relationship("EventoEntity", back_populates = "coordinador") #relaciona al staff con los eventos que coordina. Es una relacion bidireccional con el atributo 'coordinador0 en la tabla eventos.
+
+
+#EVENTOS
+class EstadoEvento(str, enum.Enum):
+    cotizado = "Cotizado"
+    confirmado = "Confirmado"
+    finalizado = "Finalizado"
+    cancelado = "Cancelado"
 
 class EventoEntity(Base):
     __tablename__= 'eventos'
@@ -89,13 +123,12 @@ class EventoEntity(Base):
     fin_evento = Column(DateTime, nullable=False)
     aforo_esperado = Column(Integer, nullable=False) #Hacer check > 0
     coordinador_id = Column(Integer, ForeignKey('staff.id_staff'), nullable=False)
-    estado_evento = Column(String(20), nullable=False, default = 'Cotizado') #hacer check entre los estados disponibles
+    estado_evento = Column(Enum(EstadoEvento), nullable=False, default = 'Cotizado') #hacer check entre los estados disponibles
     subtotal = Column(Numeric(14,2), nullable=False) #Hacer check de que sea > 0 #Este subtotal es el precio por hora del salon
     tasa_asistencia = Column(Numeric(5,2), nullable = True)
 
     __table_args__= (
-        CheckConstraint('aforo_esperado > 0', name = "check_aforo_evento"),
-        CheckConstraint("LOWER(estado_evento) IN ('cotizado', 'confirmado', 'finalizado', 'cancelado')", name = "check_estado_evento"),#hacer check entre los estados disponibles
+        CheckConstraint('aforo_esperado >= 0', name = "check_aforo_evento"),
         CheckConstraint('subtotal > 0', name = "check_subtotal_evento"),
         CheckConstraint('fin_evento > inicio_evento', name="check_rango_fechas"),
     ) 
@@ -107,6 +140,7 @@ class EventoEntity(Base):
     inscripciones = relationship("InscripcionesEntity", back_populates="evento")
     auditorias = relationship("Auditoria_EventosEntity", back_populates="evento")
     
+#EVENTOS Y SERVICIOS
 
 class Evento_ServiciosEntity(Base):
     __tablename__ = 'evento_servicios'
@@ -126,6 +160,8 @@ class Evento_ServiciosEntity(Base):
     evento = relationship("EventoEntity", back_populates="servicios") #me permite navegar desde el detalle del servicio hacia el evento que tiene asociado
     servicio = relationship("ServicioEntity", back_populates = "evento_servicios") #me permite ir del detalle hacia el servicio que se contrato.
 
+#ASISTENTES
+
 class AsistenteEntity(Base):
     __tablename__ = 'asistentes'
     id_asistente = Column(Integer, primary_key = True, index=True)
@@ -137,6 +173,8 @@ class AsistenteEntity(Base):
     #Relaciones
     inscripciones = relationship("InscripcionesEntity", back_populates="asistente")
 
+
+#INSCRIPCIONES
 class InscripcionesEntity(Base):
     __tablename__ = "inscripciones"
     id_inscripciones = Column(Integer, primary_key = True, index=True)
@@ -148,6 +186,9 @@ class InscripcionesEntity(Base):
     #relaciones tablas
     evento = relationship("EventoEntity", back_populates="inscripciones")
     asistente = relationship("AsistenteEntity", back_populates="inscripciones")
+
+
+#AUDITORIA_EVENTOS
 
 class Auditoria_EventosEntity(Base):
 #Auditoria_Eventos es el nombre de la clase en python que mapea la tabla
